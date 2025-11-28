@@ -6,7 +6,9 @@ import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
 
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+# ZMIANA: Usunięto RandomForest, dodano LinearRegression i GradientBoosting
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
@@ -30,13 +32,11 @@ st.markdown(
 # ---------------------------------------------------------
 @st.cache_data
 def load_wine_quality(path: str = "winequality-red.csv") -> pd.DataFrame:
-    # Wczytanie danych wina
     df = pd.read_csv(path)
     return df
 
 @st.cache_data
 def load_wine_food_pairings(path: str = "wine_food_pairings.csv") -> pd.DataFrame:
-    # Wczytanie danych parowania
     df = pd.read_csv(path)
     return df
 
@@ -93,7 +93,6 @@ if module == "Analiza jakości wina":
 
         st.markdown("---")
         
-        # Sekcja korelacji (Seaborn)
         st.markdown("### 🔥 Macierz Korelacji")
         corr = df.corr(numeric_only=True)
         fig_corr, ax_corr = plt.subplots(figsize=(10, 5))
@@ -101,7 +100,7 @@ if module == "Analiza jakości wina":
         st.pyplot(fig_corr)
 
     # -----------------------------------------------------
-    # TAB 2: Zaawansowane Wizualizacje (Nowość)
+    # TAB 2: Zaawansowane Wizualizacje
     # -----------------------------------------------------
     with tab2:
         st.subheader("Zaawansowana Analityka Wizualna")
@@ -121,7 +120,7 @@ if module == "Analiza jakości wina":
         # 2. Wykres Radarowy
         with col_adv1:
             st.markdown("### 2. Profil Wina: Dobre vs. Słabe (Radar Chart)")
-            # Normalizacja danych (Min-Max)
+            # Normalizacja danych
             df_norm = (df - df.min()) / (df.max() - df.min())
             df_norm['quality_label'] = df['quality'].apply(lambda x: 'Wysoka jakość (>6)' if x > 6 else 'Niska/Średnia (<=6)')
             
@@ -155,7 +154,7 @@ if module == "Analiza jakości wina":
             st.write("Wybierz 3 wymiary, aby poszukać klastrów.")
             x_ax = st.selectbox("Oś X", df.columns, index=0)
             y_ax = st.selectbox("Oś Y", df.columns, index=1)
-            z_ax = st.selectbox("Oś Z", df.columns, index=10) # alcohol zazwyczaj
+            z_ax = st.selectbox("Oś Z", df.columns, index=10)
             
             fig_3d = px.scatter_3d(
                 df, x=x_ax, y=y_ax, z=z_ax,
@@ -167,7 +166,7 @@ if module == "Analiza jakości wina":
             st.plotly_chart(fig_3d, use_container_width=True)
 
     # -----------------------------------------------------
-    # TAB 3: Modelowanie ML
+    # TAB 3: Modelowanie ML (BEZ RANDOM FOREST)
     # -----------------------------------------------------
     with tab3:
         st.subheader("🤖 Predykcja jakości wina")
@@ -176,16 +175,24 @@ if module == "Analiza jakości wina":
         
         with col_set1:
             st.markdown("**Konfiguracja modelu**")
+            # Wybór modelu: Gradient Boosting lub Regresja Liniowa
             model_type = st.selectbox(
                 "Wybierz algorytm:",
-                ["Random Forest Regressor", "Gradient Boosting Regressor"]
+                ["Gradient Boosting (Zaawansowany)", "Regresja Liniowa (Baseline)"]
             )
             test_size = st.slider("Zbiór testowy (%)", 10, 50, 20) / 100.0
             
         with col_set2:
-            st.markdown("**Hiperparametry**")
-            n_estimators = st.slider("Liczba estymatorów (drzew)", 50, 500, 200, step=50)
-            random_seed = 42
+            st.markdown("**Hiperparametry (tylko dla Gradient Boosting)**")
+            if "Gradient Boosting" in model_type:
+                n_estimators = st.slider("Liczba estymatorów", 50, 500, 200, step=50)
+                learning_rate = st.slider("Learning rate", 0.01, 0.3, 0.1, step=0.01)
+            else:
+                st.info("Regresja liniowa nie wymaga dobierania hiperparametrów w tym widoku.")
+                n_estimators = 100 # dummy value
+                learning_rate = 0.1
+
+        random_seed = 42
 
         # Przygotowanie danych
         X = df.drop("quality", axis=1)
@@ -194,10 +201,14 @@ if module == "Analiza jakości wina":
 
         # Inicjalizacja modelu
         model = None
-        if model_type == "Random Forest Regressor":
-            model = RandomForestRegressor(n_estimators=n_estimators, random_state=random_seed)
+        if "Gradient Boosting" in model_type:
+            model = GradientBoostingRegressor(
+                n_estimators=n_estimators, 
+                learning_rate=learning_rate, 
+                random_state=random_seed
+            )
         else:
-            model = GradientBoostingRegressor(n_estimators=n_estimators, random_state=random_seed)
+            model = LinearRegression()
 
         if st.button("Trenuj model"):
             with st.spinner("Trenowanie modelu..."):
@@ -208,24 +219,29 @@ if module == "Analiza jakości wina":
                 mae = mean_absolute_error(y_test, y_pred)
                 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 
-            st.success("Model wytrenowany pomyślnie!")
+            st.success(f"Model {model_type} wytrenowany pomyślnie!")
             
             m1, m2, m3 = st.columns(3)
             m1.metric("R² Score", f"{r2:.3f}", delta_color="normal")
             m2.metric("MAE", f"{mae:.3f}", delta_color="inverse")
             m3.metric("RMSE", f"{rmse:.3f}", delta_color="inverse")
 
-            # Wykres: Rzeczywiste vs Przewidywane
+            # Wykres: Rzeczywiste vs Przewidywane (BEZ trendline="ols", żeby nie wywołać błędu statsmodels)
             fig_res = px.scatter(
                 x=y_test, y=y_pred, 
                 labels={'x': 'Rzeczywista jakość', 'y': 'Przewidywana jakość'},
                 title=f"Wydajność modelu: {model_type}",
-                trendline="ols"
+                opacity=0.6
+            )
+            # Dodanie idealnej linii 1:1 dla odniesienia
+            fig_res.add_shape(type="line",
+                x0=y_test.min(), y0=y_test.min(), x1=y_test.max(), y1=y_test.max(),
+                line=dict(color="Red", dash="dash")
             )
             st.plotly_chart(fig_res, use_container_width=True)
 
-            # Feature Importance
-            if hasattr(model, 'feature_importances_'):
+            # Feature Importance tylko dla Gradient Boosting
+            if "Gradient Boosting" in model_type:
                 importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=True)
                 fig_imp = px.bar(importances, orientation='h', title="Ważność cech (Feature Importance)")
                 st.plotly_chart(fig_imp, use_container_width=True)

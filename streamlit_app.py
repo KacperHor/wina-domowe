@@ -10,7 +10,9 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
-[cite_start]# [cite: 1] Konfiguracja strony
+# ---------------------------------------------------------
+# Konfiguracja strony
+# ---------------------------------------------------------
 st.set_page_config(
     page_title="Wine Analytics Pro & Food Pairings",
     layout="wide",
@@ -28,13 +30,13 @@ st.markdown(
 # ---------------------------------------------------------
 @st.cache_data
 def load_wine_quality(path: str = "winequality-red.csv") -> pd.DataFrame:
-    [cite_start]# [cite: 26] Wczytanie danych wina
+    # Wczytanie danych wina
     df = pd.read_csv(path)
     return df
 
 @st.cache_data
 def load_wine_food_pairings(path: str = "wine_food_pairings.csv") -> pd.DataFrame:
-    [cite_start]# [cite: 30] Wczytanie danych parowania
+    # Wczytanie danych parowania
     df = pd.read_csv(path)
     return df
 
@@ -71,7 +73,7 @@ if module == "Analiza jakości wina":
     
     df = wine_quality_df.copy()
 
-    # [cite_start]Użycie zakładek dla lepszej organizacji [cite: 12]
+    # Użycie zakładek dla lepszej organizacji
     tab1, tab2, tab3 = st.tabs(["📊 Eksploracja Danych", "📈 Zaawansowane Wizualizacje", "🤖 Modelowanie ML"])
 
     # -----------------------------------------------------
@@ -104,7 +106,7 @@ if module == "Analiza jakości wina":
     with tab2:
         st.subheader("Zaawansowana Analityka Wizualna")
 
-        # 1. Boxploty (Nowa wizualizacja #1)
+        # 1. Boxploty
         st.markdown("### 1. Analiza rozkładu cech (Boxplot)")
         st.info("Wykresy pudełkowe pozwalają zidentyfikować wartości odstające (outliers) w każdej klasie jakości.")
         feature_to_plot = st.selectbox("Wybierz cechę do analizy:", df.columns.drop('quality'))
@@ -116,23 +118,20 @@ if module == "Analiza jakości wina":
 
         col_adv1, col_adv2 = st.columns(2)
 
-        # 2. Wykres Radarowy (Nowa wizualizacja #2)
+        # 2. Wykres Radarowy
         with col_adv1:
             st.markdown("### 2. Profil Wina: Dobre vs. Słabe (Radar Chart)")
-            # Przygotowanie danych do wykresu radarowego
-            # Normalizacja danych (Min-Max) aby skale cech były porównywalne
+            # Normalizacja danych (Min-Max)
             df_norm = (df - df.min()) / (df.max() - df.min())
             df_norm['quality_label'] = df['quality'].apply(lambda x: 'Wysoka jakość (>6)' if x > 6 else 'Niska/Średnia (<=6)')
             
             radar_data = df_norm.groupby('quality_label').mean().reset_index()
-            # Przekształcenie do formatu long dla plotly
             categories = list(df.columns.drop('quality'))
             
             fig_radar = go.Figure()
             
             for label in radar_data['quality_label'].unique():
                 values = radar_data[radar_data['quality_label'] == label][categories].values.flatten().tolist()
-                # Zamknięcie pętli wykresu
                 values += values[:1]
                 cats = categories + [categories[0]]
                 
@@ -150,7 +149,7 @@ if module == "Analiza jakości wina":
             )
             st.plotly_chart(fig_radar, use_container_width=True)
 
-        # 3. Wykres 3D (Nowa wizualizacja #3)
+        # 3. Wykres 3D
         with col_adv2:
             st.markdown("### 3. Interaktywna analiza 3D")
             st.write("Wybierz 3 wymiary, aby poszukać klastrów.")
@@ -168,7 +167,7 @@ if module == "Analiza jakości wina":
             st.plotly_chart(fig_3d, use_container_width=True)
 
     # -----------------------------------------------------
-    # TAB 3: Modelowanie ML (Rozbudowane)
+    # TAB 3: Modelowanie ML
     # -----------------------------------------------------
     with tab3:
         st.subheader("🤖 Predykcja jakości wina")
@@ -177,7 +176,6 @@ if module == "Analiza jakości wina":
         
         with col_set1:
             st.markdown("**Konfiguracja modelu**")
-            # Wybór modelu (Nowa funkcjonalność)
             model_type = st.selectbox(
                 "Wybierz algorytm:",
                 ["Random Forest Regressor", "Gradient Boosting Regressor"]
@@ -189,17 +187,16 @@ if module == "Analiza jakości wina":
             n_estimators = st.slider("Liczba estymatorów (drzew)", 50, 500, 200, step=50)
             random_seed = 42
 
-        # [cite_start]Przygotowanie danych [cite: 156]
+        # Przygotowanie danych
         X = df.drop("quality", axis=1)
         y = df["quality"]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_seed)
 
-        # Inicjalizacja modelu w zależności od wyboru
+        # Inicjalizacja modelu
         model = None
         if model_type == "Random Forest Regressor":
             model = RandomForestRegressor(n_estimators=n_estimators, random_state=random_seed)
         else:
-            # Nowy model: Gradient Boosting
             model = GradientBoostingRegressor(n_estimators=n_estimators, random_state=random_seed)
 
         if st.button("Trenuj model"):
@@ -213,7 +210,6 @@ if module == "Analiza jakości wina":
 
             st.success("Model wytrenowany pomyślnie!")
             
-            # Wyświetlanie metryk
             m1, m2, m3 = st.columns(3)
             m1.metric("R² Score", f"{r2:.3f}", delta_color="normal")
             m2.metric("MAE", f"{mae:.3f}", delta_color="inverse")
@@ -234,7 +230,6 @@ if module == "Analiza jakości wina":
                 fig_imp = px.bar(importances, orientation='h', title="Ważność cech (Feature Importance)")
                 st.plotly_chart(fig_imp, use_container_width=True)
             
-            # Zapisanie modelu w sesji, aby użyć go w predykcji użytkownika
             st.session_state['trained_model'] = model
             st.session_state['model_columns'] = X.columns
 
@@ -259,7 +254,6 @@ if module == "Analiza jakości wina":
                     input_df = pd.DataFrame([user_input])
                     prediction = st.session_state['trained_model'].predict(input_df)[0]
                     
-                    # Wizualizacja wyniku (Gauge Chart)
                     fig_gauge = go.Figure(go.Indicator(
                         mode = "gauge+number",
                         value = prediction,
@@ -289,14 +283,12 @@ elif module == "Parowanie wina z jedzeniem":
     dfp = pairings_df.copy()
     st.subheader(" 🍽️ Inteligentne Parowanie Wina")
 
-    # Filtry w Expandrze dla czystości interfejsu
     with st.expander("🔍 Filtry wyszukiwania", expanded=True):
         col_f1, col_f2, col_f3 = st.columns(3)
         wine_type_sel = col_f1.multiselect("Typ wina", options=sorted(dfp["wine_type"].unique()))
         cuisine_sel = col_f2.multiselect("Kuchnia", options=sorted(dfp["cuisine"].unique()))
         min_score = col_f3.slider("Min. ocena parowania", int(dfp["pairing_quality"].min()), int(dfp["pairing_quality"].max()), int(dfp["pairing_quality"].min()))
 
-    # [cite_start]Logika filtrowania [cite: 267]
     filt = dfp.copy()
     if wine_type_sel:
         filt = filt[filt["wine_type"].isin(wine_type_sel)]
@@ -304,7 +296,6 @@ elif module == "Parowanie wina z jedzeniem":
         filt = filt[filt["cuisine"].isin(cuisine_sel)]
     filt = filt[filt["pairing_quality"] >= min_score]
 
-    # Wizualizacja rozkładu parowań (Plotly zamiast standardowego bar chart)
     col_viz1, col_viz2 = st.columns([2, 1])
     
     with col_viz1:
@@ -318,7 +309,6 @@ elif module == "Parowanie wina z jedzeniem":
         
     with col_viz2:
         st.markdown("### Statystyki")
-        # Wykres kołowy (Donut chart) typów wina w przefiltrowanym widoku
         if not filt.empty:
             fig_pie = px.pie(filt, names='wine_type', title='Rozkład typów wina w wynikach', hole=0.4)
             st.plotly_chart(fig_pie, use_container_width=True)
@@ -327,7 +317,6 @@ elif module == "Parowanie wina z jedzeniem":
 
     st.markdown("---")
     
-    # [cite_start]Sekcja wyszukiwania konkretnego dania [cite: 309]
     st.markdown("### 🔎 Wyszukiwarka dań")
     search_term = st.text_input("Wpisz nazwę dania (np. 'Duck', 'Cheese'):", "")
     
@@ -336,7 +325,6 @@ elif module == "Parowanie wina z jedzeniem":
         if rec.empty:
             st.warning("Nie znaleziono takiego dania.")
         else:
-            # Ładna prezentacja wyników w postaci kart (metrics)
             best_match = rec.sort_values(by="pairing_quality", ascending=False).iloc[0]
             st.success(f"Top rekomendacja dla '{search_term}':")
             
